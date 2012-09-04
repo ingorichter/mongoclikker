@@ -3,7 +3,7 @@
  * */
 var mongoclikkerConnection = {
   host    : 'localhost'
-, port    : '27017'
+, port    : 27017
 , user    : ''
 , pass    : ''
 , db      : 'mongoclikker'
@@ -129,17 +129,18 @@ function castData(data) {
  * */
 function typeOf(data){
   var type = typeof data;
-	if (type !== 'object') {
-		return type;
-	} else if (Object.prototype.toString.call(data) === '[object Array]') {
-		return 'array';
-	} else if (data === null) {
-		return 'null';
-	} else {
+  if (type !== 'object') {
+    return type;
+  } else if (Object.prototype.toString.call(data) === '[object Array]') {
+    return 'array';
+  } else if (data === null) {
+    return 'null';
+  } else {
     if (data instanceof Date) { 
-      return 'date'; }
-		return 'object';
-	}
+      return 'date';
+    }
+    return 'object';
+  }
 }
 
 /**
@@ -240,11 +241,13 @@ var funcStartMongoclikker = function() {
   var app = require('express').createServer()
     , express = require('express')
     , Db = require('mongodb').Db
+    , Admin = require('mongodb').Admin
     , Connection = require('mongodb').Connection
     , Server = require('mongodb').Server
     , BSON = require('mongodb').BSONNative
     , connectionSettings = {native_parser:true}
     , viewURL = '/view/'
+    , databasesURL = '/listdatabases/'
     , ConnectAuth = require(__dirname + '/lib/semu-connect-basic-auth-c32ee11/lib/basicAuth');
     
   var currentDatabase = mongoclikkerConnection.db
@@ -267,7 +270,38 @@ var funcStartMongoclikker = function() {
    * Redirect / to viewURL
    * */
   app.get('/', function(req, res) {
-    res.redirect(viewURL);
+    if (req.params.curDB == undefined) {
+      res.redirect(databasesURL);
+    } else {
+      res.redirect(viewURL);
+    }
+  });
+
+  app.get(databasesURL, function(req, res) {
+    console.log('List all available Databases');
+    res.write('<html><head><title>mongoclikker</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.0/jquery.min.js"></script><script src="/script.js"></script><style>@import url("http://fonts.googleapis.com/css?family=Varela+Round&v2");</style><link rel="stylesheet/less" type="text/css" href="/styles.less"><script src="/less.js" type="text/javascript"></script></head>');
+
+    var dbName = req.params.curDB || currentDatabase
+    var db = new Db(dbName, new Server(currentHostname, currentPort, {}), connectionSettings);
+
+    db.open(function(err, ignored) {
+      if (err) { console.log(err); }
+
+      var admin = new Admin(db);
+      path = viewURL;
+      admin.listDatabases(function(err, dbs) {
+          if (err) { console.log(err); }
+
+          res.write('<table><tr><td class="desc">database</td><td class="content"><ul id="db">');
+
+          for(var i = 0; i < dbs.databases.length; i++) {
+              var name = dbs.databases[i].name;
+              res.write('<li><a href="' + path + name + '">' + name + '</a></li>');
+          }
+
+          res.write('</ul></td></tr>');
+      });
+    });
   });
   
   /**
